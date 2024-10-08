@@ -9,7 +9,7 @@ import logging
 import colorlog
 
 # Create logger
-logger = logging.getLogger("openai_chatgpt_python")
+logger = logging.getLogger("vision_tool")
 logger.setLevel(logging.INFO)
 
 # Define log format with colors
@@ -17,7 +17,6 @@ formatter_str = (
     "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(process)d - "
     "[%(filename)s:%(lineno)d] - %(message)s"
 )
-formatter = logging.Formatter(formatter_str)
 
 # Create a colored formatter
 formatter = colorlog.ColoredFormatter(
