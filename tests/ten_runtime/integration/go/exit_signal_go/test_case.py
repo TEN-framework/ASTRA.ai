@@ -137,3 +137,24 @@ def test_sigterm(server):
     assert server_rc == 0
 
     check_if_extension_stops()
+
+
+def test_new_app_does_not_overwrite_sigsegv_handler(build_and_install_app):
+    """NewApp must not overwrite the existing SIGSEGV handler."""
+    if sys.platform != "linux":
+        pytest.skip("The SIGSEGV handler test is Linux-only.")
+
+    env = build_and_install_app["env"].copy()
+    env["TEN_TEST_SIGSEGV_HANDLER"] = "1"
+    env["TEN_DISABLE_SIGNAL_TRAP"] = "false"
+
+    process = subprocess.run(
+        build_and_install_app["server_cmd"],
+        stdout=stdout,
+        stderr=subprocess.STDOUT,
+        env=env,
+        cwd=build_and_install_app["app_root_path"],
+        check=False,
+    )
+
+    assert process.returncode == 0

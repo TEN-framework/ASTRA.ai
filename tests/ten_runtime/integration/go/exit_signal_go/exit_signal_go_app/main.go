@@ -7,8 +7,47 @@
 
 package main
 
+/*
+#include <signal.h>
+#include <stdint.h>
+
+#if defined(_WIN32)
+static int install_test_sigsegv_handler(void) {
+	return -1;
+}
+
+static uintptr_t get_test_sigsegv_handler(void) {
+	return 0;
+}
+#else
+static void test_sigsegv_handler(int signo, siginfo_t *info, void *context) {
+	(void)signo;
+	(void)info;
+	(void)context;
+}
+
+static int install_test_sigsegv_handler(void) {
+	struct sigaction action = {0};
+	action.sa_sigaction = test_sigsegv_handler;
+	action.sa_flags = SA_SIGINFO;
+	sigemptyset(&action.sa_mask);
+	return sigaction(SIGSEGV, &action, NULL);
+}
+
+static uintptr_t get_test_sigsegv_handler(void) {
+	struct sigaction action = {0};
+	if (sigaction(SIGSEGV, NULL, &action) != 0) {
+		return 0;
+	}
+	return (uintptr_t)action.sa_sigaction;
+}
+#endif
+*/
+import "C"
+
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"time"
@@ -31,6 +70,24 @@ func (p *defaultApp) OnDeinit(tenEnv ten.TenEnv) {
 }
 
 func main() {
+	if os.Getenv("TEN_TEST_SIGSEGV_HANDLER") == "1" {
+		if C.install_test_sigsegv_handler() != 0 {
+			os.Exit(10)
+		}
+
+		before := C.get_test_sigsegv_handler()
+		_, err := ten.NewApp(&defaultApp{})
+		if err != nil {
+			os.Exit(11)
+		}
+
+		after := C.get_test_sigsegv_handler()
+		if before != after {
+			os.Exit(12)
+		}
+		os.Exit(0)
+	}
+
 	// test app
 	app, err := ten.NewApp(&defaultApp{})
 	if err != nil {
