@@ -11,7 +11,6 @@
 #include "include_internal/ten_runtime/binding/go/internal/common.h"
 #include "include_internal/ten_runtime/binding/go/ten_env/ten_env.h"
 #include "include_internal/ten_runtime/binding/go/ten_env/ten_env_internal.h"
-#include "include_internal/ten_runtime/global/signal.h"
 #include "ten_runtime/binding/common.h"
 #include "ten_runtime/binding/go/interface/ten_runtime/common.h"
 #include "ten_runtime/binding/go/interface/ten_runtime/ten_env.h"
@@ -109,64 +108,6 @@ ten_go_app_t *ten_go_app_create(ten_go_handle_t go_app_index) {
       ten_app_create(proxy_on_configure, proxy_on_init, proxy_on_deinit, NULL);
   ten_binding_handle_set_me_in_target_lang(
       (ten_binding_handle_t *)(app_bridge->c_app), app_bridge);
-
-  // Setup the default signal handler for GO app. The reason for setting up the
-  // signal handler for GO app is as follows.
-  //
-  // 1. Because of the linked mechanism, the following function
-  // `ten_global_setup_signal_stuff()` will be called after the GO process is
-  // created, and before the GO runtime is initialized. Refer to
-  // `TEN_CONSTRUCTOR`.
-  //
-  // 2. Then the GO runtime starts, and a default signal handler is set up in
-  // the GO world. The `sigaction` function is called from GO using cgo, and the
-  // handler setup by `ten_global_setup_signal_stuff()` in the above step is
-  // replaced.
-  //
-  // The code snippet of handling the `SIGINT` and `SIGTERM` in GO runtime is as
-  // follows.
-  //
-  //   /* Setup the default signal handler in GO.*/
-  //   func setsig(i uint32, fn uintptr) {
-  //     var sa sigactiont
-  //     sa.sa_flags = _SA_SIGINFO | _SA_ONSTACK | _SA_RESTORER | _SA_RESTART
-  //     if GOARCH == "386" || GOARCH == "amd64" {
-  //       sa.sa_restorer = abi.FuncPCABI0(sigreturn__sigaction)
-  //     }
-  //
-  //     sigaction(i, &sa, nil)
-  //   }
-  //
-  //   /* The default signal handler in GO. */
-  //   func sigfwdgo(sig uint32, ...) bool {
-  //     /* We are not handling the signal and there is no other handler to */
-  //     /* forward to. Crash with the default behavior. */
-  // 		 if fwdFn == _SIG_DFL {
-  // 			 setsig(sig, _SIG_DFL)
-  // 			 dieFromSignal(sig)
-  // 			 return false
-  // 		 }
-  //
-  // 		 sigfwd(fwdFn, sig, info, ctx)
-  // 		 return true
-  //   }
-  //
-  // In brief, the GO runtime will setup a default signal handler, and save the
-  // old handler (i.e., ten_global_signal_handler). When GO runtime receives a
-  // `SIGINT` or `SIGTERM`, it forwards the signal to the old handler first, and
-  // then crashes the process as SIGKILL.
-  //
-  // However, the signal handler (i.e., ten_global_signal_handler) is an async
-  // function, which means after the handler returns, the TEN app may not be
-  // closed completely yet, and the `on_stop` or `on_deinit` callback of
-  // extensions may not be called.
-  //
-  // 3. After the GO runtime starts, the GO `main` function will be called. Any
-  // `sigaction` function called in the `main` function will replace the default
-  // signal handler setup by the GO runtime. Ex: the following function
-  // ten_global_setup_signal_stuff().
-
-  ten_global_setup_signal_stuff();
 
   return app_bridge;
 }
